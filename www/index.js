@@ -9,7 +9,22 @@ const operationMap = {
     modulo: { needsB: true }
 };
 
-function setupUI() {
+async function main() {
+    const { loadPyodide } = await import('https://cdn.jsdelivr.net/pyodide/v0.27.3/full/pyodide.mjs');
+    const pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.3/full/' });
+
+    const code = await fetch('./calculator.py').then(r => r.text());
+    pyodide.runPython(code);
+
+    const pyFns = {};
+    for (const name of ['add', 'subtract', 'multiply', 'divide', 'sqrt_a', 'power', 'percentage', 'modulo']) {
+        pyFns[name] = pyodide.globals.get(name);
+    }
+
+    setupUI(pyFns);
+}
+
+function setupUI(pyFns) {
     const numberAInput = document.getElementById('numberA');
     const numberBInput = document.getElementById('numberB');
     const resultSpan = document.getElementById('result-value');
@@ -19,7 +34,6 @@ function setupUI() {
         if (!Number.isFinite(value)) {
             return 'Error';
         }
-        // Use toPrecision to limit significant digits, then remove trailing zeros
         const formatted = parseFloat(value.toPrecision(10)).toString();
         return formatted;
     }
@@ -37,11 +51,10 @@ function setupUI() {
         }
     }
 
-    async function calculate() {
+    function calculate() {
         const a = parseFloat(numberAInput.value) || 0;
         const b = parseFloat(numberBInput.value) || 0;
 
-        // Find current operation based on button state
         let currentOp = null;
         opButtons.forEach(btn => {
             if (btn.style.boxShadow && btn.style.boxShadow !== '') {
@@ -63,25 +76,13 @@ function setupUI() {
         }
 
         try {
-            const response = await fetch('/calculate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    op: currentOp,
-                    a: a,
-                    b: b
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
+            const pyFn = pyFns[currentOp];
+            const result = op.needsB ? pyFn(a, b) : pyFn(a);
+            const formatted = formatResult(result);
+            if (formatted === 'Error') {
                 resultSpan.textContent = 'Error';
                 resultSpan.classList.add('error');
             } else {
-                const formatted = formatResult(data.result);
                 resultSpan.textContent = formatted;
                 resultSpan.classList.remove('error');
             }
@@ -92,24 +93,21 @@ function setupUI() {
         }
     }
 
-    // Set up button click handlers
     opButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const opName = btn.dataset.op;
             updateButtonState(opName);
-
-            // Update button visual state
             opButtons.forEach(b => b.style.boxShadow = '');
             btn.style.boxShadow = '0 0 0 3px rgba(91, 168, 224, 0.3)';
-
             calculate();
         });
     });
 
-    // Initialize with first button state
+    numberAInput.addEventListener('input', calculate);
+    numberBInput.addEventListener('input', calculate);
+
     updateButtonState('add');
     resultSpan.textContent = '0';
 }
 
-// Set up UI on page load
-setupUI();
+main().catch(console.error);
