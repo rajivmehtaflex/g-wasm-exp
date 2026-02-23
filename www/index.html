@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="card">
+        <h1>Calculator</h1>
+
+        <div class="input-group">
+            <label for="numberA">Number A</label>
+            <input type="number" id="numberA" class="number-input" step="any" placeholder="0" value="0">
+        </div>
+
+        <div class="input-group">
+            <label for="numberB">Number B</label>
+            <input type="number" id="numberB" class="number-input" step="any" placeholder="0" value="0">
+        </div>
+
+        <div class="ops-row basic">
+            <button class="op-btn" data-op="add">+</button>
+            <button class="op-btn" data-op="subtract">−</button>
+            <button class="op-btn" data-op="multiply">×</button>
+            <button class="op-btn" data-op="divide">÷</button>
+        </div>
+
+        <div class="ops-row advanced">
+            <button class="op-btn small" data-op="sqrt_a">√A</button>
+            <button class="op-btn small" data-op="power">A^B</button>
+            <button class="op-btn small" data-op="percentage">A%B</button>
+            <button class="op-btn small" data-op="modulo">A mod B</button>
+        </div>
+
+        <div class="result-panel">
+            <span class="result-label">Result</span>
+            <span class="result-value" id="result-value">0</span>
+        </div>
+    </div>
+
+    <script type="module" src="index.js"></script>
+</body>
+</html>
