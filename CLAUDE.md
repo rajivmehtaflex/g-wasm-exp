@@ -4,59 +4,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**g-wasm-exp** is a complete WASM Calculator web application. The calculator runs in the browser with Rust-compiled WebAssembly handling all math operations, and a Python dev server for local hosting. It supports 8 operations (add, subtract, multiply, divide, square root, power, percentage, modulo) with live result formatting and error handling for edge cases.
+**g-wasm-exp** is a complete Calculator web application. The calculator runs in the browser with a Python FastAPI backend handling all math operations. It supports 8 operations (add, subtract, multiply, divide, square root, power, percentage, modulo) with live result formatting and error handling for edge cases.
 
 ## Tech Stack
 
-- **Backend Math**: Rust (8 functions compiled to WASM via wasm-pack)
+- **Backend Math**: Python FastAPI (8 functions via HTTP API)
 - **Frontend**: HTML5, CSS3, vanilla JavaScript (ES6 modules)
-- **Build**: wasm-pack 0.13.1
-- **Server**: Python 3.12 (http.server)
-- **Runtime Requirements**: Rust 1.93.1+, wasm-pack 0.13.1+, Python 3.12+
+- **Server**: FastAPI + uvicorn
+- **Runtime Requirements**: Python 3.12+, FastAPI, uvicorn
 
 ## Common Commands
 
 ```bash
-# Build WASM module (run after modifying calculator/src/lib.rs)
-bash build.sh
-
 # Start local dev server (http://localhost:8000)
 python main.py
 
 # Tunnel to public URL via Cloudflare
 ./cloudflared tunnel --url http://localhost:8000
+
+# API documentation
+# Open http://localhost:8000/docs in browser for interactive API docs
 ```
 
 ## Project Structure
 
-- **calculator/src/lib.rs**: 8 Rust functions marked with `#[wasm_bindgen]`
-  - `add(a, b)`, `subtract(a, b)`, `multiply(a, b)`, `divide(a, b)` (division by zero → NaN)
-  - `sqrt_a(a)` (negative values → NaN), `power(a, b)`, `percentage(a, b)`, `modulo(a, b)` (modulo by zero → NaN)
-- **calculator/Cargo.toml**: Rust project config (wasm-bindgen dependency, release profile optimized for size)
+- **main.py**: FastAPI application with 8 calculation endpoints
+  - `POST /calculate` endpoint accepts JSON: `{"op": "add|subtract|multiply|divide|sqrt_a|power|percentage|modulo", "a": float, "b": float}`
+  - Returns `{"result": float}` on success or `{"error": "message"}` on error
+  - Operations:
+    - `add(a, b)` = `a + b`
+    - `subtract(a, b)` = `a - b`
+    - `multiply(a, b)` = `a * b`
+    - `divide(a, b)` = `a / b` (error if `b == 0`)
+    - `sqrt_a(a, -)` = `sqrt(a)` (error if `a < 0`)
+    - `power(a, b)` = `a ** b`
+    - `percentage(a, b)` = `a * b / 100`
+    - `modulo(a, b)` = `a % b` (error if `b == 0`)
 - **www/index.html**: Calculator UI (two number inputs, 8 operation buttons, result display)
-- **www/index.js**: Event handlers and WASM initialization (imports all 8 functions from generated `pkg/calculator.js`)
+- **www/index.js**: Event handlers and async fetch calls to `/calculate` endpoint
 - **www/style.css**: UI styling (card layout, blue buttons, responsive)
-- **build.sh**: Builds WASM with `wasm-pack build calculator --target web --out-dir ../www/pkg --release`
-- **main.py**: Serves `www/` on port 8000 with WASM MIME type fix
 
 ## Architecture
 
 The flow is:
 1. User enters numbers in the HTML form
 2. User clicks an operation button
-3. `index.js` calls the corresponding WASM function (e.g., `divide(a, b)`)
-4. Rust function returns `f64` (returns `NaN` for errors like division by zero)
-5. `formatResult()` formats the value, checks if finite, applies 10-digit precision
-6. Result displayed in UI; "Error" in red for non-finite values
+3. `index.js` sends async `POST /calculate` request with operation and operands
+4. FastAPI backend performs calculation with Python `math` module
+5. Backend returns `{"result": <value>}` or `{"error": "<message>"}`
+6. Frontend checks for error field; if present, displays red "Error"; otherwise formats and displays numeric result
+7. `formatResult()` applies 10-digit precision formatting
 
-When to rebuild:
-- After modifying `calculator/src/lib.rs`
-- After updating `calculator/Cargo.toml` dependencies
-- Frontend changes (HTML/CSS/JS) don't require rebuild; just refresh the browser
+When changes are needed:
+- Backend changes: Modify `main.py` operations logic
+- Frontend changes (HTML/CSS/JS): No restart needed; just refresh the browser
+- After modifying `main.py`: Restart the server (`python main.py`)
 
 ## Build Artifacts (git-ignored)
 
-- `/calculator/target/` — Rust intermediate build files
-- `/www/pkg/` — Generated WASM and JS glue code (auto-created by `build.sh`)
+- `/www/pkg/` — Legacy WASM directory (no longer used, can be safely deleted)
 
 See README.md for detailed usage, troubleshooting, and API reference.

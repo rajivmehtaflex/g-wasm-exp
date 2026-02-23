@@ -1,38 +1,13 @@
-import init, {
-    add,
-    subtract,
-    multiply,
-    divide,
-    sqrt_a,
-    power,
-    percentage,
-    modulo
-} from './pkg/calculator.js';
-
 const operationMap = {
-    add: { fn: add, needsB: true },
-    subtract: { fn: subtract, needsB: true },
-    multiply: { fn: multiply, needsB: true },
-    divide: { fn: divide, needsB: true },
-    sqrt_a: { fn: sqrt_a, needsB: false },
-    power: { fn: power, needsB: true },
-    percentage: { fn: percentage, needsB: true },
-    modulo: { fn: modulo, needsB: true }
+    add: { needsB: true },
+    subtract: { needsB: true },
+    multiply: { needsB: true },
+    divide: { needsB: true },
+    sqrt_a: { needsB: false },
+    power: { needsB: true },
+    percentage: { needsB: true },
+    modulo: { needsB: true }
 };
-
-let wasmReady = false;
-
-async function boot() {
-    try {
-        await init();
-        wasmReady = true;
-        console.log('WASM module loaded successfully');
-        setupUI();
-    } catch (error) {
-        console.error('Failed to load WASM module:', error);
-        document.getElementById('result-value').textContent = 'Error loading WASM';
-    }
-}
 
 function setupUI() {
     const numberAInput = document.getElementById('numberA');
@@ -62,13 +37,7 @@ function setupUI() {
         }
     }
 
-    function calculate() {
-        if (!wasmReady) {
-            resultSpan.textContent = 'Loading...';
-            resultSpan.classList.add('error');
-            return;
-        }
-
+    async function calculate() {
         const a = parseFloat(numberAInput.value) || 0;
         const b = parseFloat(numberBInput.value) || 0;
 
@@ -93,15 +62,33 @@ function setupUI() {
             return;
         }
 
-        const result = op.fn(a, b);
-        const formatted = formatResult(result);
+        try {
+            const response = await fetch('/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    op: currentOp,
+                    a: a,
+                    b: b
+                })
+            });
 
-        if (formatted === 'Error') {
+            const data = await response.json();
+
+            if (data.error) {
+                resultSpan.textContent = 'Error';
+                resultSpan.classList.add('error');
+            } else {
+                const formatted = formatResult(data.result);
+                resultSpan.textContent = formatted;
+                resultSpan.classList.remove('error');
+            }
+        } catch (error) {
+            console.error('Calculation error:', error);
             resultSpan.textContent = 'Error';
             resultSpan.classList.add('error');
-        } else {
-            resultSpan.textContent = formatted;
-            resultSpan.classList.remove('error');
         }
     }
 
@@ -119,14 +106,10 @@ function setupUI() {
         });
     });
 
-    // Set up input event listeners for live calculation
-    numberAInput.addEventListener('input', calculate);
-    numberBInput.addEventListener('input', calculate);
-
     // Initialize with first button state
     updateButtonState('add');
     resultSpan.textContent = '0';
 }
 
-// Boot the WASM module on page load
-boot();
+// Set up UI on page load
+setupUI();
